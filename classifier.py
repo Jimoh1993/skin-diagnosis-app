@@ -43,7 +43,8 @@ def load_model():
     download_model()
     model = models.resnet50(weights=None)
     model.fc = nn.Linear(model.fc.in_features, len(class_names))
-    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
+    # model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
+    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device, weights_only=False))
     model.eval()
     model.to(device)
     return model
