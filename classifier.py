@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 import os
 import requests
+import gdown
 
 # === CLASS NAMES ===
 class_names = [
@@ -34,19 +35,14 @@ transform = transforms.Compose([
 ])
 
 # === DOWNLOAD MODEL ===
-MODEL_URL = "https://drive.google.com/uc?export=download&id=12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
+MODEL_URL = "https://drive.google.com/uc?id=12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
 MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
-        print("⏬ Downloading model...")
-        r = requests.get(MODEL_URL, allow_redirects=True)
-        if r.status_code == 200:
-            with open(MODEL_LOCAL_PATH, "wb") as f:
-                f.write(r.content)
-            print("✅ Model downloaded.")
-        else:
-            raise Exception(f"❌ Failed to download model. Status: {r.status_code}")
+        print("⏬ Downloading model with gdown...")
+        gdown.download(MODEL_URL, MODEL_LOCAL_PATH, quiet=False)
+        print("✅ Model downloaded.")
     else:
         print("✅ Model already exists.")
 
