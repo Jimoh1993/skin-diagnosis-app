@@ -1,4 +1,5 @@
 # classifier.py
+
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -8,7 +9,6 @@ import numpy as np
 import cv2
 import os
 import requests
-from pathlib import Path
 
 # === CLASS NAMES ===
 class_names = [
@@ -26,7 +26,6 @@ class_names = [
 
 # === DEVICE & TRANSFORM ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -47,10 +46,9 @@ def download_model():
                 f.write(r.content)
             print("✅ Model downloaded.")
         else:
-            raise Exception(f"❌ Failed to download model. Status code: {r.status_code}")
+            raise Exception(f"❌ Failed to download model. Status: {r.status_code}")
     else:
-        print("✅ Model already downloaded.")
-
+        print("✅ Model already exists.")
 
 # === LOAD MODEL ===
 def load_model():
@@ -61,8 +59,6 @@ def load_model():
     model.eval()
     model.to(device)
     return model
-
-model = load_model()
 
 # === GradCAM ===
 class GradCAM:
@@ -81,18 +77,14 @@ class GradCAM:
         def backward_hook(module, grad_in, grad_out):
             self.gradients = grad_out[0].detach()
 
-        self.hook_handles.append(
-            self.target_layer.register_forward_hook(forward_hook))
-        self.hook_handles.append(
-            self.target_layer.register_backward_hook(backward_hook))
+        self.hook_handles.append(self.target_layer.register_forward_hook(forward_hook))
+        self.hook_handles.append(self.target_layer.register_backward_hook(backward_hook))
 
     def generate_cam(self, input_tensor, class_idx=None):
         self.model.zero_grad()
         output = self.model(input_tensor)
-
         if class_idx is None:
             class_idx = output.argmax(dim=1).item()
-
         loss = output[0, class_idx]
         loss.backward()
 
@@ -109,14 +101,13 @@ class GradCAM:
         cam = cam / (cam.max() + 1e-8)
         cam_np = cam.cpu().numpy()
         cam_np = cv2.resize(cam_np, (224, 224))
-
         return cam_np
 
     def clear_hooks(self):
         for handle in self.hook_handles:
             handle.remove()
 
-# === Overlay Heatmap on Image ===
+# === Heatmap Overlay ===
 def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     img_np = np.array(img_pil.resize((224, 224)))
     heatmap = cv2.applyColorMap(np.uint8(255 * cam_mask), cv2.COLORMAP_JET)
@@ -124,8 +115,9 @@ def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     overlayed = cv2.addWeighted(heatmap, alpha, img_np, 1 - alpha, 0)
     return Image.fromarray(overlayed)
 
-# === Main Prediction Function ===
+# === Main Function ===
 def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
+    model = load_model()  # ✅ Load model only when needed
     try:
         input_tensor = transform(image_pil).unsqueeze(0).to(device)
         cam = GradCAM(model, target_layer=model.layer4[-1])
@@ -141,7 +133,6 @@ def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
         heatmap_img.save(save_path)
 
         return class_names[pred_class], confidence.item(), save_path
-
     except Exception as e:
         print(f"❌ Error in prediction: {e}")
         return "Error", 0.0, None
