@@ -1,0 +1,10 @@
+
+streamlit
+torch
+torchvision
+transformers
+Pillow
+opencv-python-headless
+reportlab
+numpy
+requests
