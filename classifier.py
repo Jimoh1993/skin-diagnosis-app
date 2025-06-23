@@ -1,5 +1,5 @@
 # classifier.py
-
+import os
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -7,26 +7,18 @@ from torchvision import models
 from PIL import Image
 import numpy as np
 import cv2
-import os
-import requests
 import gdown
 
 # === CLASS NAMES ===
 class_names = [
-    'Atopic Dermatitis',
-    'Basal Cell Carcinoma',
-    'Benign Keratosis-like Lesions',
-    'Eczema',
-    'Melanocytic Nevi',
-    'Melanoma',
-    'Psoriasis',
-    'Seborrheic Keratoses',
-    'Tinea Ringworm Candidiasis',
-    'Warts Molluscum'
+    'Atopic Dermatitis', 'Basal Cell Carcinoma', 'Benign Keratosis-like Lesions',
+    'Eczema', 'Melanocytic Nevi', 'Melanoma', 'Psoriasis',
+    'Seborrheic Keratoses', 'Tinea Ringworm Candidiasis', 'Warts Molluscum'
 ]
 
 # === DEVICE & TRANSFORM ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -34,41 +26,29 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# # === DOWNLOAD MODEL ===
-# MODEL_URL = "https://drive.google.com/uc?id=12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
-# MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"
+# === DOWNLOAD MODEL ===
+MODEL_ID = "12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
+MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"
 
-# def download_model():
-#     if not os.path.exists(MODEL_LOCAL_PATH):
-#         print("⏬ Downloading model with gdown...")
-#         gdown.download(MODEL_URL, MODEL_LOCAL_PATH, quiet=False)
-#         print("✅ Model downloaded.")
-#     else:
-#         print("✅ Model already exists.")
-
-
-# === MODEL PATH ===
-MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"  
-
-def load_model():
-    model = models.resnet50(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, len(class_names))
-    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device, weights_only=False))
-    model.eval()
-    model.to(device)
-    return model
-
+def download_model():
+    if not os.path.exists(MODEL_LOCAL_PATH):
+        print("⏬ Downloading model with gdown...")
+        gdown.download(id=MODEL_ID, output=MODEL_LOCAL_PATH, quiet=False)
+        print("✅ Model downloaded.")
+    else:
+        print("✅ Model already exists.")
 
 # === LOAD MODEL ===
 def load_model():
     download_model()
     model = models.resnet50(weights=None)
     model.fc = nn.Linear(model.fc.in_features, len(class_names))
-    # model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
-    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device, weights_only=False))
+    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
     model.eval()
     model.to(device)
     return model
+
+model = load_model()
 
 # === GradCAM ===
 class GradCAM:
