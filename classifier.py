@@ -35,9 +35,8 @@ transform = transforms.Compose([
 ])
 
 # === DOWNLOAD MODEL ===
-# https://drive.google.com/file/d/12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL
-MODEL_URL = "https://drive.google.com/uc?id=12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"  # Replace with real ID
-MODEL_LOCAL_PATH = "model.pth"
+MODEL_URL = "https://drive.google.com/uc?export=download&id=12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
+MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
@@ -48,9 +47,10 @@ def download_model():
                 f.write(r.content)
             print("✅ Model downloaded.")
         else:
-            raise Exception("Failed to download model.")
+            raise Exception(f"❌ Failed to download model. Status code: {r.status_code}")
     else:
         print("✅ Model already downloaded.")
+
 
 # === LOAD MODEL ===
 def load_model():
