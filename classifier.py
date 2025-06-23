@@ -27,8 +27,8 @@ transform = transforms.Compose([
 ])
 
 # === DOWNLOAD MODEL ===
-MODEL_ID = "12o3b6TCXBnL0dESJOfMl4ntXHvmKEJjL"
-MODEL_LOCAL_PATH = "kimianet_stage2_finetuned_best.pth"
+MODEL_ID = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
+MODEL_LOCAL_PATH = "resnet50_stage2_finetuned_best.pth"
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
@@ -43,8 +43,7 @@ def load_model():
     download_model()
     model = models.resnet50(weights=None)
     model.fc = nn.Linear(model.fc.in_features, len(class_names))
-    # model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
-    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device, weights_only=False))
+    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
     model.eval()
     model.to(device)
     return model
