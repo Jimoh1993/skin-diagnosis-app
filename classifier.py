@@ -41,29 +41,22 @@ def download_model():
 def load_model():
     download_model()
     model = models.resnet50(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, len(class_names))
+    num_features = model.fc.in_features
+    model.fc = nn.Linear(num_features, len(class_names))  # Ensure len(class_names) == 10
     
-    checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
-    if isinstance(checkpoint, dict):
-        if 'model_state_dict' in checkpoint:
-            state_dict = checkpoint['model_state_dict']
-        elif 'state_dict' in checkpoint:
-            state_dict = checkpoint['state_dict']
-        else:
-            state_dict = checkpoint
-    else:
-        state_dict = checkpoint
-
+    state_dict = torch.load(MODEL_LOCAL_PATH, map_location=device)
+    
     try:
-        model.load_state_dict(state_dict, strict=True)
+        model.load_state_dict(state_dict)
     except RuntimeError as e:
         print("❌ RuntimeError while loading state_dict:")
         print(e)
-        # Optionally: print keys mismatches if error string contains them
-        raise e
-
-    model.eval()
+        print("Trying with strict=False to ignore missing/unexpected keys...")
+        model.load_state_dict(state_dict, strict=False)
+        print("✅ Loaded model with strict=False. Verify carefully!")
+    
     model.to(device)
+    model.eval()
     return model
 
 model = load_model()
