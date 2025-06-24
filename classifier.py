@@ -39,6 +39,7 @@ def download_model():
     else:
         print("✅ Model already exists.")
 
+# === LOAD MODEL ===
 def load_model():
     download_model()
     model = models.resnet50(weights=None)
@@ -54,7 +55,7 @@ def get_model():
         _model = load_model()
     return _model
 
-# --- GradCAM and prediction functions remain unchanged ---
+# === GradCAM and prediction functions ===
 class GradCAM:
     def __init__(self, model, target_layer):
         self.model = model
@@ -99,6 +100,7 @@ class GradCAM:
         for handle in self.hook_handles:
             handle.remove()
 
+# === Overlay Heatmap on Image === 
 def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     img_np = np.array(img_pil.resize((224, 224)))
     heatmap = cv2.applyColorMap(np.uint8(255 * cam_mask), cv2.COLORMAP_JET)
@@ -106,6 +108,7 @@ def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     overlayed = cv2.addWeighted(heatmap, alpha, img_np, 1 - alpha, 0)
     return Image.fromarray(overlayed)
 
+# === Main Prediction Function ===
 def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
     try:
         model = get_model()
