@@ -6,8 +6,8 @@ import re
 # === Load FLAN-T5 model ===
 try:
     # Consider using flan-t5-base or flan-t5-small for lower RAM use on free tier
-    generator = pipeline("text2text-generation", model="google/flan-t5-base")  # safe for Streamlit Cloud
-    # generator = pipeline("text2text-generation", model="google/flan-t5-large")  # may crash on free plan
+    # generator = pipeline("text2text-generation", model="google/flan-t5-base")  # safe for Streamlit Cloud
+    generator = pipeline("text2text-generation", model="google/flan-t5-large")  # may crash on free plan but try
 except Exception as e:
     generator = None
     print(f"⚠️ Failed to load LLM model: {e}")
