@@ -25,9 +25,12 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# === DOWNLOAD MODEL ===
+# === MODEL DOWNLOAD INFO ===
 MODEL_ID = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
 MODEL_LOCAL_PATH = "resnet50_stage2_finetuned_best.pth"
+
+# === Lazy-loaded model cache ===
+_model = None
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
@@ -37,38 +40,44 @@ def download_model():
     else:
         print("✅ Model already exists.")
 
-# === LOAD MODEL ===
 def load_model():
     download_model()
+
     model = models.resnet50(weights=None)
     num_features = model.fc.in_features
     model.fc = nn.Linear(num_features, len(class_names))
 
-    state_dict = torch.load(MODEL_LOCAL_PATH, map_location=device)
-
-    print("Checkpoint keys:")
-    for k in state_dict.keys():
-        print(k)
-    
-    print("\nModel state dict keys:")
-    for k in model.state_dict().keys():
-        print(k)
-
     try:
-        model.load_state_dict(state_dict, strict=False)
-        print("✅ Model loaded successfully with strict=False")
-    except RuntimeError as e:
-        print("❌ RuntimeError while loading state_dict:")
-        print(e)
+        state_dict = torch.load(MODEL_LOCAL_PATH, map_location=device)
+    except Exception as e:
+        print(f"❌ Error loading model weights: {e}")
         raise e
 
-    model.eval()
+    # If keys start with 'module.' (saved from DataParallel), remove prefix
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        new_key = k[7:] if k.startswith('module.') else k
+        new_state_dict[new_key] = v
+
+    try:
+        model.load_state_dict(new_state_dict, strict=False)
+        print("✅ Model loaded successfully (strict=False).")
+    except RuntimeError as e:
+        print(f"❌ RuntimeError loading state dict: {e}")
+        raise e
+
     model.to(device)
+    model.eval()
     return model
 
-model = load_model()
+def get_model():
+    global _model
+    if _model is None:
+        _model = load_model()
+    return _model
 
-# === GradCAM ===
+# === GradCAM implementation ===
 class GradCAM:
     def __init__(self, model, target_layer):
         self.model = model
@@ -115,7 +124,7 @@ class GradCAM:
         for handle in self.hook_handles:
             handle.remove()
 
-# === Heatmap Overlay ===
+# === Heatmap overlay helper ===
 def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     img_np = np.array(img_pil.resize((224, 224)))
     heatmap = cv2.applyColorMap(np.uint8(255 * cam_mask), cv2.COLORMAP_JET)
@@ -123,10 +132,10 @@ def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     overlayed = cv2.addWeighted(heatmap, alpha, img_np, 1 - alpha, 0)
     return Image.fromarray(overlayed)
 
-# === Main Function ===
+# === Main prediction function ===
 def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
-    model = load_model()  # ✅ Load model only when needed
     try:
+        model = get_model()
         input_tensor = transform(image_pil).unsqueeze(0).to(device)
         cam = GradCAM(model, target_layer=model.layer4[-1])
 
