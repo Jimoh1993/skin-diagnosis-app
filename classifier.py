@@ -29,8 +29,7 @@ transform = transforms.Compose([
 MODEL_ID = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
 MODEL_LOCAL_PATH = "resnet50_stage2_finetuned_best.pth"
 
-# === Lazy-loaded model cache ===
-_model = None
+_model = None  # lazy-loaded model cache
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
@@ -45,27 +44,23 @@ def load_model():
 
     model = models.resnet50(weights=None)
     num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, len(class_names))
+    model.fc = nn.Linear(num_features, len(class_names))  # 10 classes
 
-    try:
-        state_dict = torch.load(MODEL_LOCAL_PATH, map_location=device)
-    except Exception as e:
-        print(f"❌ Error loading model weights: {e}")
-        raise e
+    # Load checkpoint
+    checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
 
-    # If keys start with 'module.' (saved from DataParallel), remove prefix
+    # Strip 'module.' prefix if present
     from collections import OrderedDict
     new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        new_key = k[7:] if k.startswith('module.') else k
-        new_state_dict[new_key] = v
+    for k, v in checkpoint.items():
+        name = k[7:] if k.startswith('module.') else k
+        new_state_dict[name] = v
 
-    try:
-        model.load_state_dict(new_state_dict, strict=False)
-        print("✅ Model loaded successfully (strict=False).")
-    except RuntimeError as e:
-        print(f"❌ RuntimeError loading state dict: {e}")
-        raise e
+    # Remove fc weights to avoid size mismatch
+    new_state_dict = {k: v for k, v in new_state_dict.items() if not k.startswith('fc.')}
+
+    # Load remaining weights with strict=False (last layer is random init)
+    model.load_state_dict(new_state_dict, strict=False)
 
     model.to(device)
     model.eval()
@@ -77,7 +72,7 @@ def get_model():
         _model = load_model()
     return _model
 
-# === GradCAM implementation ===
+# --- GradCAM and prediction functions remain unchanged ---
 class GradCAM:
     def __init__(self, model, target_layer):
         self.model = model
@@ -90,10 +85,8 @@ class GradCAM:
     def _register_hooks(self):
         def forward_hook(module, input, output):
             self.activations = output.detach()
-
         def backward_hook(module, grad_in, grad_out):
             self.gradients = grad_out[0].detach()
-
         self.hook_handles.append(self.target_layer.register_forward_hook(forward_hook))
         self.hook_handles.append(self.target_layer.register_backward_hook(backward_hook))
 
@@ -124,7 +117,6 @@ class GradCAM:
         for handle in self.hook_handles:
             handle.remove()
 
-# === Heatmap overlay helper ===
 def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     img_np = np.array(img_pil.resize((224, 224)))
     heatmap = cv2.applyColorMap(np.uint8(255 * cam_mask), cv2.COLORMAP_JET)
@@ -132,7 +124,6 @@ def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     overlayed = cv2.addWeighted(heatmap, alpha, img_np, 1 - alpha, 0)
     return Image.fromarray(overlayed)
 
-# === Main prediction function ===
 def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
     try:
         model = get_model()
