@@ -44,8 +44,9 @@ def load_model():
     model.fc = nn.Linear(model.fc.in_features, len(class_names))
     
     checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
+    print("Checkpoint type:", type(checkpoint))
     if isinstance(checkpoint, dict):
-        # Try to find the correct state dict key
+        print("Checkpoint keys:", checkpoint.keys())
         if 'model_state_dict' in checkpoint:
             state_dict = checkpoint['model_state_dict']
         elif 'state_dict' in checkpoint:
@@ -55,9 +56,11 @@ def load_model():
     else:
         state_dict = checkpoint
 
+    print("Loading state dict...")
     model.load_state_dict(state_dict, strict=True)
     model.eval()
     model.to(device)
+    print("Model loaded successfully.")
     return model
 
 model = load_model()
