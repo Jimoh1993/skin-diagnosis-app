@@ -46,21 +46,21 @@ def load_model():
     num_features = model.fc.in_features
     model.fc = nn.Linear(num_features, len(class_names))  # 10 classes
 
-    # Load checkpoint
     checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
 
-    # Strip 'module.' prefix if present
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in checkpoint.items():
-        name = k[7:] if k.startswith('module.') else k
-        new_state_dict[name] = v
+    print("Checkpoint keys before filtering:")
+    for k in checkpoint.keys():
+        print(k)
 
-    # Remove fc weights to avoid size mismatch
-    new_state_dict = {k: v for k, v in new_state_dict.items() if not k.startswith('fc.')}
+    # Remove fc weights to avoid mismatch
+    filtered_checkpoint = {k: v for k, v in checkpoint.items() if not k.startswith('fc.')}
 
-    # Load remaining weights with strict=False (last layer is random init)
-    model.load_state_dict(new_state_dict, strict=False)
+    print("Checkpoint keys after filtering fc.*:")
+    for k in filtered_checkpoint.keys():
+        print(k)
+
+    # Load filtered checkpoint
+    model.load_state_dict(filtered_checkpoint, strict=False)
 
     model.to(device)
     model.eval()
