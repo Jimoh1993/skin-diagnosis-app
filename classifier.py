@@ -26,8 +26,8 @@ transform = transforms.Compose([
 ])
 
 # === MODEL DOWNLOAD INFO ===
-MODEL_ID = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
-MODEL_LOCAL_PATH = "resnet50_stage2_finetuned_best.pth"
+MODEL_ID = "1Vi9wckZg-jCpC7fCyb3r84LU9Cua0Yfr"
+MODEL_LOCAL_PATH = "stage2_fine_resnet50_skin_diagnosis_best.pth"
 
 _model = None  # lazy-loaded model cache
 
@@ -41,27 +41,9 @@ def download_model():
 
 def load_model():
     download_model()
-
     model = models.resnet50(weights=None)
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, len(class_names))  # 10 classes
-
-    checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
-
-    print("Checkpoint keys before filtering:")
-    for k in checkpoint.keys():
-        print(k)
-
-    # Remove fc weights to avoid mismatch
-    filtered_checkpoint = {k: v for k, v in checkpoint.items() if not k.startswith('fc.')}
-
-    print("Checkpoint keys after filtering fc.*:")
-    for k in filtered_checkpoint.keys():
-        print(k)
-
-    # Load filtered checkpoint
-    model.load_state_dict(filtered_checkpoint, strict=False)
-
+    model.fc = nn.Linear(model.fc.in_features, len(class_names))
+    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
     model.to(device)
     model.eval()
     return model
