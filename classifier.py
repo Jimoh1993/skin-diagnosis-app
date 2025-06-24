@@ -1,5 +1,5 @@
+%%writefile /content/skin_app/classifier.py
 # classifier.py
-import os
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -7,13 +7,22 @@ from torchvision import models
 from PIL import Image
 import numpy as np
 import cv2
-import gdown
+import os
+import requests
+from pathlib import Path
 
 # === CLASS NAMES ===
 class_names = [
-    'Atopic Dermatitis', 'Basal Cell Carcinoma', 'Benign Keratosis-like Lesions',
-    'Eczema', 'Melanocytic Nevi', 'Melanoma', 'Psoriasis',
-    'Seborrheic Keratoses', 'Tinea Ringworm Candidiasis', 'Warts Molluscum'
+    'Atopic Dermatitis',
+    'Basal Cell Carcinoma',
+    'Benign Keratosis-like Lesions',
+    'Eczema',
+    'Melanocytic Nevi',
+    'Melanoma',
+    'Psoriasis',
+    'Seborrheic Keratoses',
+    'Tinea Ringworm Candidiasis',
+    'Warts Molluscum'
 ]
 
 # === DEVICE & TRANSFORM ===
@@ -27,16 +36,22 @@ transform = transforms.Compose([
 ])
 
 # === DOWNLOAD MODEL ===
-MODEL_ID = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
+MODEL_URL = "1pCGSb8-VWtawtrM7Zb0mIbqY3XVk1x28"
 MODEL_LOCAL_PATH = "resnet50_stage2_finetuned_best.pth"
 
 def download_model():
     if not os.path.exists(MODEL_LOCAL_PATH):
-        print("⏬ Downloading model with gdown...")
-        gdown.download(id=MODEL_ID, output=MODEL_LOCAL_PATH, quiet=False)
-        print("✅ Model downloaded.")
+        print("⏬ Downloading model...")
+        r = requests.get(MODEL_URL, allow_redirects=True)
+        if r.status_code == 200:
+            with open(MODEL_LOCAL_PATH, "wb") as f:
+                f.write(r.content)
+            print("✅ Model downloaded.")
+        else:
+            raise Exception(f"❌ Failed to download model. Status code: {r.status_code}")
     else:
-        print("✅ Model already exists.")
+        print("✅ Model already downloaded.")
+
 
 # === LOAD MODEL ===
 def load_model():
@@ -67,14 +82,18 @@ class GradCAM:
         def backward_hook(module, grad_in, grad_out):
             self.gradients = grad_out[0].detach()
 
-        self.hook_handles.append(self.target_layer.register_forward_hook(forward_hook))
-        self.hook_handles.append(self.target_layer.register_backward_hook(backward_hook))
+        self.hook_handles.append(
+            self.target_layer.register_forward_hook(forward_hook))
+        self.hook_handles.append(
+            self.target_layer.register_backward_hook(backward_hook))
 
     def generate_cam(self, input_tensor, class_idx=None):
         self.model.zero_grad()
         output = self.model(input_tensor)
+
         if class_idx is None:
             class_idx = output.argmax(dim=1).item()
+
         loss = output[0, class_idx]
         loss.backward()
 
@@ -91,13 +110,14 @@ class GradCAM:
         cam = cam / (cam.max() + 1e-8)
         cam_np = cam.cpu().numpy()
         cam_np = cv2.resize(cam_np, (224, 224))
+
         return cam_np
 
     def clear_hooks(self):
         for handle in self.hook_handles:
             handle.remove()
 
-# === Heatmap Overlay ===
+# === Overlay Heatmap on Image ===
 def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     img_np = np.array(img_pil.resize((224, 224)))
     heatmap = cv2.applyColorMap(np.uint8(255 * cam_mask), cv2.COLORMAP_JET)
@@ -105,9 +125,8 @@ def apply_heatmap_on_image(img_pil, cam_mask, alpha=0.5):
     overlayed = cv2.addWeighted(heatmap, alpha, img_np, 1 - alpha, 0)
     return Image.fromarray(overlayed)
 
-# === Main Function ===
+# === Main Prediction Function ===
 def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
-    model = load_model()  # ✅ Load model only when needed
     try:
         input_tensor = transform(image_pil).unsqueeze(0).to(device)
         cam = GradCAM(model, target_layer=model.layer4[-1])
@@ -123,6 +142,7 @@ def predict_with_gradcam(image_pil, save_path="gradcam_result.png"):
         heatmap_img.save(save_path)
 
         return class_names[pred_class], confidence.item(), save_path
+
     except Exception as e:
         print(f"❌ Error in prediction: {e}")
         return "Error", 0.0, None
