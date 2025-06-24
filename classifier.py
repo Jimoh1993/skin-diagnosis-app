@@ -42,7 +42,20 @@ def load_model():
     download_model()
     model = models.resnet50(weights=None)
     model.fc = nn.Linear(model.fc.in_features, len(class_names))
-    model.load_state_dict(torch.load(MODEL_LOCAL_PATH, map_location=device))
+    
+    checkpoint = torch.load(MODEL_LOCAL_PATH, map_location=device)
+    if isinstance(checkpoint, dict):
+        # Try to find the correct state dict key
+        if 'model_state_dict' in checkpoint:
+            state_dict = checkpoint['model_state_dict']
+        elif 'state_dict' in checkpoint:
+            state_dict = checkpoint['state_dict']
+        else:
+            state_dict = checkpoint
+    else:
+        state_dict = checkpoint
+
+    model.load_state_dict(state_dict, strict=True)
     model.eval()
     model.to(device)
     return model
